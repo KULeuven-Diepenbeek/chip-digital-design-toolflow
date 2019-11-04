@@ -15,7 +15,7 @@ while [[ $i -le $END ]]; do
 
 	LINE=`echo "check_cyphertext(x\""$PLAINTEXT"\", x\""$KEY"\", x\""$CIPHERTEXT"\")"`
 
-	sed -i '/\[extra_tests]/a\\ \t\t'"$LINE"';' aes128_tb.vhd
+	sed -i '/\[extra_tests]/a\\ \t\t'"$LINE"';' chip_tb.vhd
 	echo "$LINE"
 	((i = i + 1))
 done
