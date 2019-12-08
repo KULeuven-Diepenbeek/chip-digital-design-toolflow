@@ -1,13 +1,14 @@
 #=======================================================================
 # Makefile for HDL simulation with Cadence Incisive
+# Author: Thomas Vandenabeele
 #-----------------------------------------------------------------------
 
 
 default: all
 
 base_dir = $(abspath ..)
-src_dir = $(abspath ../99_SRC/hdl)
-test_dir = $(abspath ../99_SRC/tb)
+src_dir = $(abspath ../99_SRC/src/hdl)
+test_dir = $(abspath ../99_SRC/src/tb)
 test_bench = CHIP_tb
 
 # define the simulator
