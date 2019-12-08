@@ -1,0 +1,143 @@
+set_cpf_version 2.0
+set_hierarchy_separator /
+set_design AES_CHIP
+
+############################
+## Define WC library sets ##
+## SS/0.95V/125C        ##
+############################
+define_library_set -name nangateopencell_wc_lib  -libraries {\
+  /tech/NangateOpenCell/Front_End/Liberty/NLDM/NangateOpenCellLibrary_slow.lib \
+  /tech/NangateOpenCell/Low_Power/Front_End/Liberty/NLDM/LowPowerOpenCellLibrary_slow.lib }
+
+ ############################
+ ## Define WC library sets ##
+ ## TT/1.1V/25C         ##
+ ############################
+ define_library_set -name nangateopencell_tt_lib  -libraries {\
+  /tech/NangateOpenCell/Front_End/Liberty/NLDM/NangateOpenCellLibrary_typical.lib \
+  /tech/NangateOpenCell/Low_Power/Front_End/Liberty/NLDM/LowPowerOpenCellLibrary_typical.lib }
+
+############################
+## Define BC library sets ##
+##  FF/1.25V/0C         ##
+############################
+define_library_set -name nangateopencell_bc_lib  -libraries {\
+  /tech/NangateOpenCell/Front_End/Liberty/NLDM/NangateOpenCellLibrary_fast.lib \
+  /tech/NangateOpenCell/Low_Power/Front_End/Liberty/NLDM/LowPowerOpenCellLibrary_fast.lib }
+
+
+############################
+## Defining Power Domains ##
+############################
+# default one, always on
+create_power_domain -name TOP -default -boundary_ports *
+
+#switchable one
+create_power_domain -name AES_PSO -instances { AESCORE } -base_domains TOP -shutoff_condition {sleep_in}
+
+#################################
+### Defining Power/Ground Nets ##
+#################################
+create_power_nets -nets VDD -voltage {1.1}
+create_power_nets -nets VDDSW -internal -voltage {0.0:1.1}
+create_ground_nets -nets VSS
+
+update_power_domain -name TOP -primary_power_net VDD -primary_ground_net VSS
+update_power_domain -name AES_PSO -primary_power_net VDDSW -primary_ground_net VSS
+
+create_global_connection -net VDD -pins VDD -domain TOP
+create_global_connection -net VSS -pins VSS -domain TOP
+create_global_connection -net VDDSW -pins VDD -domain AES_PSO
+create_global_connection -net VSS -pins VSS -domain AES_PSO
+
+
+#######
+#Define instance power domains (virtual domains) to avoid following ERROR
+#floorplan.log:**ERROR: (ENCMSMV-3502):  Power net VDD1 is not associated with any power domain.
+#It is probably because this power net is not specified as any domain's primary power net.
+#You need to modify CPF to create a virtual power domain using 'create_power_domain' without
+#-instances and -default options then specify this power net as its primary power net using 'update_power_domain'.
+#######
+#place.log:**ERROR: (ENCDB-1221):        A global net connection rule for connecting P/G pins of the pattern 'VDD1' was specified.  But the connections cannot be made because there is no such pin in any cell.  Check the pin name pattern and make sure it is correct.
+#
+
+##############################
+## Define Nominal Condition ##
+##############################
+create_nominal_condition -name on -voltage 1.1 -state on
+update_nominal_condition -name on -library_set nangateopencell_wc_lib
+create_nominal_condition -name off -voltage 0.0 -state off
+
+#######################
+## Define Power Mode ##
+#######################
+create_power_mode -name on_mode  -domain_conditions { TOP@on AES_PSO@on} -default
+update_power_mode -name on_mode  -sdc_files "../../99_SRC/sdc/aes_chip_onmode.sdc"
+create_power_mode -name sleep_mode  -domain_conditions { TOP@on AES_PSO@off }
+update_power_mode -name sleep_mode  -sdc_files "../../99_SRC/sdc/aes_chip_sleepmode.sdc"
+
+#############################
+## Define Operation Corner ##
+#############################
+create_operating_corner -name on_wc_rc125   -library_set nangateopencell_wc_lib  -process 1  -voltage 0.95   -temperature 125
+create_operating_corner -name on_bc_rc0   -library_set nangateopencell_bc_lib  -process 1  -voltage 1.25   -temperature 0
+create_operating_corner -name sleep_wc_rc125   -library_set nangateopencell_wc_lib  -process 1  -voltage 0.0   -temperature 125
+create_operating_corner -name sleep_bc_rc0   -library_set nangateopencell_bc_lib  -process 1  -voltage 0.0   -temperature 0
+
+##########################
+## Define Analysis View ##
+##########################
+## SETUP
+create_analysis_view -name AV_on_mode_wc_rc125_setup      -mode on_mode  -domain_corners {TOP@on_wc_rc125 AES_PSO@on_wc_rc125}
+create_analysis_view -name AV_sleep_mode_wc_rc125_setup      -mode sleep_mode  -domain_corners {TOP@on_wc_rc125 AES_PSO@sleep_wc_rc125}
+
+
+## HOLD ##
+create_analysis_view -name AV_on_mode_wc_rc125_hold       -mode on_mode  -domain_corners {TOP@on_wc_rc125 AES_PSO@on_wc_rc125}
+create_analysis_view -name AV_sleep_mode_wc_rc125_hold       -mode sleep_mode  -domain_corners {TOP@on_wc_rc125 AES_PSO@sleep_wc_rc125}
+
+create_analysis_view -name AV_on_mode_bc_rc0_hold 	    -mode on_mode  -domain_corners {TOP@on_bc_rc0 AES_PSO@on_bc_rc0}
+create_analysis_view -name AV_sleep_mode_bc_rc0_hold 	    -mode sleep_mode  -domain_corners {TOP@on_bc_rc0 AES_PSO@sleep_bc_rc0}
+
+
+
+###############################
+## Define Power Switch cells ##
+###############################
+define_power_switch_cell -power_switchable VDD -power VVDD -stage_1_enable SLEEP -stage_1_output SLEEPOUT -type header -cells "HEADER_OE_X1"
+create_power_switch_rule -name pd_aescore_sw -domain AES_PSO -external_power_net VDD
+update_power_switch_rule -name pd_aescore_sw -enable_condition_1 {!sleep_in} -acknowledge_receiver_1 {sleep_out} -cells "HEADER_OE_X1"
+
+##########################
+## Define Level Shifter ##
+##########################
+# define_level_shifter_cell -input_voltage_range 1.08:1.32 -output_voltage_range 0.90:1.32 -power VDD -direction down -ground VSS -cells "LSHLX1_TO" -valid_location either
+# create_level_shifter_rule -name pd_addsub_lvlin -from TOP -to KERNEL_LO
+# update_level_shifter_rules -names pd_addsub_lvlin -cells "LSHLX1_TO" -location to
+# define_level_shifter_cell -input_voltage_range 0.90:1.32 -output_voltage_range 1.08:1.32 -direction bidir -input_power_pin ExtVDD -output_power_pin VDD -ground VSS -cells "LSLHX1_TO" -valid_location to
+# create_level_shifter_rule -name pd_addsub_lvlout -from KERNEL_LO -to TOP
+# update_level_shifter_rules -names pd_addsub_lvlout -cells "LSLHX1_TO"
+
+############################
+## Define Isolation cells ##
+############################
+define_isolation_cell -power VDD -ground VSS -enable EN -valid_location to -cells "ISO_FENCE0N_X1"
+create_isolation_rule -name pd_aescore_iso -isolation_condition {sleep_in} -from AES_PSO -to TOP -exclude {sleep_out} -isolation_output low
+update_isolation_rules -names pd_aescore_iso -location to
+
+##########################
+## Define Retention FF ##
+##########################
+
+# define_state_retention_cell -cells {RDFF* SRDFF*} -ground VSS -power ExtVDD -power_switchable VDD -save_function !RT -restore_function RT
+# create_state_retention_rule -name pd_addsub_ret -domain KERNEL_PSO -save_edge {nrestore} -restore_edge {!nrestore} -secondary_domain TOP
+# update_state_retention_rules -names pd_addsub_ret -cells {RDFF* SRDFF*}
+
+#############################
+## Define AON Buffer cells ##
+#############################
+define_always_on_cell -cells "AON_BUF_X2" -power_switchable VDD -power VDDBAK -ground VSS
+# identify_always_on_driver -pins sleep_in
+
+end_design
