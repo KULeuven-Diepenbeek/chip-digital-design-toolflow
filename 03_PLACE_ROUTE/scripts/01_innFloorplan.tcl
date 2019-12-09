@@ -101,13 +101,13 @@ loadIoFile $99_dir/io/$chip_top.io
 ##Create a VDD VSS Ring around the core
 ##Create a ring around the core for VDD and VSS in metal 5 (hor.) and metal 6 (vert.)
 ##with a width of 12? each and a spacing of 2.0? between the wires on all sides and an offset to the core of 1.0 ?.
-addRing \
--around default_power_domain \
--nets {VDD VSS} \
--layer {bottom M5 top M5 right M6 left M6} \
--width 10 \
--spacing 4 \
--offset 1
+#addRing \
+#-around default_power_domain \
+#-nets {VDD VSS} \
+#-layer {bottom M5 top M5 right M6 left M6} \
+#-width 10 \
+#-spacing 4 \
+#-offset 1
 
 ################################
 ## Global VSS GRID generation ##
