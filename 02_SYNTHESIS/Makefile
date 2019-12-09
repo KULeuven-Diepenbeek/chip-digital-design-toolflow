@@ -9,7 +9,7 @@ lecRtlCpfCheck: prepareDirs
 	#lec -lp -verify -nogui -dofile scripts/lecRtlCpfCheck.tcl -logfile logs/lecRtlCpfCheck.log
 
 synthesis: prepareDirs
-	cd work; genus -files ../scripts/synthesis.tcl -legacy_ui -log ../logs/synthesis.log -overwrite
+	cd work; genus  -legacy_ui -log ../logs/synthesis.log -overwrite
 
 lecCpfCheck:
 	cd work; lec -lpgxl -verify -TclMode -dofile ../scripts/lecCpfCheck.tcl -logfile ../logs/lecCpfCheck.log

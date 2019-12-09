@@ -104,8 +104,6 @@ syn_map $chip_top
 report timing -summary
 report power -detail > ../reports/$chip_top.power.BeforeOpt.rpt
 
-break
-
 
 ##############################
 ## Incremental optimization ##
